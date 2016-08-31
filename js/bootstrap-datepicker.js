@@ -1768,6 +1768,7 @@
 			return {separators: separators, parts: parts};
 		},
 		parseDate: function(date, format, language, assumeNearby){
+			var formatstr = format;
 			if (!date)
 				return undefined;
 			if (date instanceof Date)
@@ -1803,7 +1804,16 @@
 				return UTCDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 			}
 
-			parts = date && date.match(this.nonpunctuation) || [];
+			if (formatstr === 'yyyymmdd') {
+				parts = date.match(/(\d{4})(\d{2})(\d{2})/);
+				parts.shift();
+			} else if (formatstr === 'yyyymm') {
+				parts = date.match(/(\d{4})(\d{2})/);
+				parts.shift();
+			} else {
+				parts = date && date.match(this.nonpunctuation) || [];
+			}
+
 			date = new Date();
 
 			function applyNearbyYear(year, threshold){
