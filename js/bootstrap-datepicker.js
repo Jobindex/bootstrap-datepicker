@@ -1805,10 +1805,10 @@
 			}
 
 			if (formatstr === 'yyyymmdd') {
-				parts = date.match(/(\d{4})(\d{2})(\d{2})/);
+				parts = date && date.match(/(\d{4})(\d{2})(\d{2})/) || [];
 				parts.shift();
 			} else if (formatstr === 'yyyymm') {
-				parts = date.match(/(\d{4})(\d{2})/);
+				parts = date && date.match(/(\d{4})(\d{2})/) || [];
 				parts.shift();
 			} else {
 				parts = date && date.match(this.nonpunctuation) || [];
