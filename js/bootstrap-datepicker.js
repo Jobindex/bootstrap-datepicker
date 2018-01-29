@@ -30,6 +30,81 @@
     }
 }(function($, undefined){
 
+	/* Given a year and a week number, find the first week day in that
+	 * week in the year (typically a Monday). We use this to convert a
+	 * year-week number pair (YYYYWW) into a date that can be shown in
+	 * the datepicker.  */
+	function firstDayInWeek(parts) {
+		try {
+			var year = parts[0];
+			var weekNumber = parts[1];
+		}
+		catch (ex) {
+			return;
+		}
+
+		/* Get the first date of the year. */
+		var firstDate = new Date(Date.UTC(year, 0, 1));
+
+		var firstDateDay = firstDate.getUTCDay();
+		if (firstDateDay == 0) { // Sunday
+			firstDateDay = 7;
+		}
+		var dayMon = 1;
+		var dayThurs = 4;
+		var daysToFirstThursday = firstDateDay <= dayThurs ? dayThurs - firstDateDay : dayThurs + 7 - firstDateDay;
+		var daysToGivenWeekThursday = daysToFirstThursday + (weekNumber - 1) * 7;
+		var daysToGivenWeekFirstDay = daysToGivenWeekThursday - dayThurs + dayMon;
+		if (daysToGivenWeekFirstDay < 0) {
+			daysToGivenWeekFirstDay = 0;
+		}
+
+		/* Get the first day in the week. Stay in the same year. */
+		var givenWeekFirstDay = new Date(Date.UTC(year, 0, 1));
+		givenWeekFirstDay.setUTCDate(givenWeekFirstDay.getUTCDate() + daysToGivenWeekFirstDay);
+
+		var month = givenWeekFirstDay.getMonth();
+		var day = givenWeekFirstDay.getDate();
+		return [year, month + 1, day];
+	}
+
+	/* Find the week number of the date. ISO 8601 states that week 01
+	 * is the week with the first Thursday in the week. We use this
+	 * when the 'resultFormat' element data value is set to
+	 * 'yyyyww'. */
+	Date.prototype.getWeekNumber = function() {
+		/* Get the Thursday of the week of the current date. */
+		var dayCur = this.getUTCDay();
+		if (dayCur == 0) { // Sunday
+			dayCur = 7;
+		}
+		var dayThurs = 4;
+		var thursdayThisWeek = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
+		thursdayThisWeek.setUTCDate(this.getUTCDate() - dayCur + dayThurs);
+
+		/* Get the first date of the year. */
+		var firstDate = new Date(Date.UTC(this.getFullYear(), 0, 1));
+
+		/* Find the week number by taking the difference and rounding up. */
+		var weekNumber = Math.ceil((thursdayThisWeek - firstDate) / (60 * 60 * 24 * 1000) / 7);
+
+		var year = this.getFullYear();
+		if (weekNumber == 0) {
+			/* Handle dates in the beginning of the year that are
+			 * still part of last year's week. */
+			weekNumber = 52;
+			year--;
+		} else if (weekNumber == 53) {
+			/* The concept of a week 53 is valid, but it is not
+			 * supported by this datepicker, so we say (wrongly) that
+			 * it is just week 1 in the new year. */
+			weekNumber = 1;
+			year++;
+		}
+
+		return [year, weekNumber];
+	};
+
 	function UTCDate(){
 		return new Date(Date.UTC.apply(Date, arguments));
 	}
@@ -249,7 +324,8 @@
 					if (o.startDate instanceof Date)
 						o.startDate = this._local_to_utc(this._zero_time(o.startDate));
 					else
-						o.startDate = DPGlobal.parseDate(o.startDate, format, o.language, o.assumeNearbyYear);
+						o.startDate = DPGlobal.parseDate(o.startDate, format, o.language, o.assumeNearbyYear,
+														 o.resultFormat);
 				}
 				else {
 					o.startDate = -Infinity;
@@ -260,7 +336,8 @@
 					if (o.endDate instanceof Date)
 						o.endDate = this._local_to_utc(this._zero_time(o.endDate));
 					else
-						o.endDate = DPGlobal.parseDate(o.endDate, format, o.language, o.assumeNearbyYear);
+						o.endDate = DPGlobal.parseDate(o.endDate, format, o.language, o.assumeNearbyYear,
+													   o.resultFormat);
 				}
 				else {
 					o.endDate = Infinity;
@@ -275,7 +352,7 @@
 				o.datesDisabled = o.datesDisabled.split(',');
 			}
 			o.datesDisabled = $.map(o.datesDisabled, function(d){
-				return DPGlobal.parseDate(d, format, o.language, o.assumeNearbyYear);
+				return DPGlobal.parseDate(d, format, o.language, o.assumeNearbyYear, o.resultFormat);
 			});
 
 			var plc = String(o.orientation).toLowerCase().split(/\s+/g),
@@ -602,8 +679,16 @@
 				format = this.o.format;
 
 			var lang = this.o.language;
+			var resultFormat = this.o.resultFormat;
 			return $.map(this.dates, function(d){
-				return DPGlobal.formatDate(d, format, lang);
+				if (resultFormat == 'yyyyww') {
+					var parts = d.getWeekNumber();
+					var year = parts[0];
+					var weekNumber = parts[1];
+					return year + (weekNumber <= 9 ? '0' : '') + weekNumber;
+				} else {
+				    return DPGlobal.formatDate(d, format, lang);
+                }
 			}).join(this.o.multidateSeparator);
 		},
 
@@ -760,7 +845,8 @@
 			}
 
 			dates = $.map(dates, $.proxy(function(date){
-				return DPGlobal.parseDate(date, this.o.format, this.o.language, this.o.assumeNearbyYear);
+				return DPGlobal.parseDate(date, this.o.format, this.o.language, this.o.assumeNearbyYear,
+										  this.o.resultFormat);
 			}, this));
 			dates = $.grep(dates, $.proxy(function(date){
 				return (
@@ -1767,7 +1853,7 @@
 			}
 			return {separators: separators, parts: parts};
 		},
-		parseDate: function(date, format, language, assumeNearby){
+		parseDate: function(date, format, language, assumeNearby, resultFormat){
 			var formatstr = format;
 			if (!date)
 				return undefined;
@@ -1804,7 +1890,12 @@
 				return UTCDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 			}
 
-			if (formatstr === 'yyyymmdd') {
+			if (resultFormat === 'yyyyww') {
+				/* Pick the first day of the week. */
+				parts = date && date.match(/(\d{4})(\d{2})/) || [];
+				parts.shift();
+				parts = firstDayInWeek(parts);
+			} else if (formatstr === 'yyyymmdd') {
 				parts = date && date.match(/(\d{4})(\d{2})(\d{2})/) || [];
 				parts.shift();
 			} else if (formatstr === 'yyyymm') {
