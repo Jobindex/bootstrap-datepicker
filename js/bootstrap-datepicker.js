@@ -1839,7 +1839,7 @@
 				navStep: 1000
 			}
 		],
-		validParts: /dd?|DD?|mm?|MM?|yy(?:yy)?/g,
+		validParts: /dd?|DD?|mm?|MM?|yy(?:yy)?|ww/g,
 		nonpunctuation: /[^ -\/:-@\u5e74\u6708\u65e5\[-`{-~\t\n\r]+/g,
 		parseFormat: function(format){
 			if (typeof format.toValue === 'function' && typeof format.toDisplay === 'function')
@@ -2009,7 +2009,8 @@
 				M: dates[language].monthsShort[date.getUTCMonth()],
 				MM: dates[language].months[date.getUTCMonth()],
 				yy: date.getUTCFullYear().toString().substring(2),
-				yyyy: date.getUTCFullYear()
+				yyyy: date.getUTCFullYear(),
+				ww: date.getWeekNumber()[1].toString().padStart(2, "0"),
 			};
 			val.dd = (val.d < 10 ? '0' : '') + val.d;
 			val.mm = (val.m < 10 ? '0' : '') + val.m;
